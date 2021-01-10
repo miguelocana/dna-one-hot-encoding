@@ -97,27 +97,25 @@ kneighbors <- function(train, test) {
   kneighbors_7_p <- CrossTable(x = test_labels, y = kneighbors_7, prop.chisq=FALSE)
   return (list('k1'=kneighbors_1_p,'k3'=kneighbors_3_p,'k5'=kneighbors_5_p,'k7'=kneighbors_7_p))
 }
+
+ann <- function(train, test) {
+  
+}
+
 ##################################### ALGORITMOS ######################################
+ann <- neuralnet(formula = V1 ~ ., data = train, hidden = 1)
+p <- sapply(compute(ann, test)$net.result, round, digits = 0)
 
-
-
-naive_bayes <- naiveBayes(train, class, laplace = 0)
-p <- predict(m, test, type = 'response')
-
-ann <- neuralnet(target ~predictors, data = mydata, hidden = 1)
-p <- compute(m, test)
 
 svm <- ksvm(target ~predictors, data = mydata, kernal = "rbfdot", c = 1)
 p <- predict(m, test, type = 'response')
+p$net.result
 
 decision_tree <- c5.0(train, class, trials = 1, costs, NULL)
 p <- predict(m, test, type = 'class')
 
 random_forest <- randomForest(train, class, ntree = 500, mtry = sqrt(p))
 p <- predict(m, test, type = 'response')
-
-
-
 
 ###################################### PRE-PROCESAMIENTO ##############################
 df1 <- promoters[,-2] # quitamos la columna "name"
@@ -130,15 +128,17 @@ test <- split_train_test(prueba)$test
 train_labels <- df_train[,1]
 test_labels <- df_test[,1]
 
-###################################### K-NEIGHBORS ###################################
-kneighbors_1 <- knn(train = df_train[,-1], test = df_test[,-1], cl = train_labels, k = 1)
-kneighbors_3 <- knn(train = df_train[,-1], test = df_test[,-1], cl = train_labels, k = 3)
-kneighbors_5 <- knn(train = df_train[,-1], test = df_test[,-1], cl = train_labels, k = 5)
-kneighbors_7 <- knn(train = df_train[,-1], test = df_test[,-1], cl = train_labels, k = 7)
-kneighbors_1_p <- CrossTable(x = test_labels, y = kneighbors_1, prop.chisq=FALSE)
-kneighbors_3_p <- CrossTable(x = test_labels, y = kneighbors_3, prop.chisq=FALSE)
-kneighbors_5_p <- CrossTable(x = test_labels, y = kneighbors_5, prop.chisq=FALSE)
-kneighbors_7_p <- CrossTable(x = test_labels, y = kneighbors_7, prop.chisq=FALSE)
+##################################### RESULTADOS ####################################
+KN <- kneighbors(train, test)$k1
+NB <- 
 
-###################################### NAIVE-BAYES ###################################
+#########################################################################
+for (i in 1:ncol(df2)) {
+  df2[,i] <- as.character(df2[,i])
+}
 
+naive_bayes <- naiveBayes(V1 ~ ., data = train)
+pred <- predict(naive_bayes, test)
+naive_bayes_cr <- CrossTable(x = naive_bayes_p, y = test_labels, prop.chisq = FALSE)
+
+#########################################################################
