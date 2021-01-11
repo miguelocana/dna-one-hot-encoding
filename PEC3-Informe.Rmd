@@ -19,14 +19,28 @@ output:
 
 ---
 
+Siguiendo la idea de lo propuesto para esta PEC (más allá de hacer un informe con los resultados), se ha desarrollado un informe dinámico con ```Shiny```, de tal manera que cualquier usuario pueda indagar sobre cualquier otra colección de promotores. En este informe dinámico se reutiliza el código que se ha utilizado igualmente para hacer este trabajo. 
+
+Se puede acceder al mismo a través del siguiente link: 
+
+1. La clase o variable dependiente debe situarse en la primera columna.
+2. La secuencia de ADN debe situarse en la última columna.
+
+Paralelamente, se ha realizado la PEC siguiendo el workflow habitual para esta asignatura.
+
+# Consideraciones:
+#### 1. Implementar una función para realizar una transformación one-hot encoding de las secuencias del fichero de datos promoters.txt. En caso de no lograr la implementaación de dicha transformación, se puede utilizar el fichero promoters_onehot.txt con las secuencias codificados segun un one-hot para completar la actividad.
+#### 2. En cada algoritmo hay que realizar las siguientes etapas: 1) Entrenar el modelo 2) Predicción y Evaluacióndel algoritmo. Será necesario "tunear" diferentes valores de los hiperparámetros del algoritmo paraposteriormente evaluar su rendimiento.
+#### 3. Se debe aplicar la misma selección de datos training y test en todos los algoritmos. Utilizando la semilla aleatoria 123, para separar los datos en dos partes, una parte para training (67%) y otra partepara test (33%). Opcionalmente, se puede escoger otro tipo de partición del conjunto de training parahacer la validación como por ejemplo k-fold crossvalidation, boostrap, random splitting, etc. Lo que esimportante es mantener la misma selección para todos los algoritmos.
+#### 4. En todos los casos se evalua la calidad del algoritmo con la información obtenida de la funciónconfusionMatrix() del paquete caret.
+#### 5. Para la ejecución especifica de cada algoritmo se puede usar la función de cada algoritmo como sepresenta en el libro de referencia o usar el paquete caret con los diferentes modelos de los algoritmos. O incluso, hacer una versión mixta.
+
 # 1. Transformación de los datos
 
-Primero, se importa el archivo y se guarda en una variable:
+Primero, se importan los datos y se estudian para ver que tratamientos necesitan.
 ```{r}
 promoters <- read.csv('promoters.txt',header = FALSE,sep=',')
-promoters_onehot <- read.csv('promoters_onehot.txt', header = TRUE, sep=' ')
 str(promoters)
-summary(promoters)
 ```
 
 Ahora transformamos las seqcuencias en one-hot encoding. Existe una opción muy conocida llamada *dummy*, que funciona de la siguiente manera:
@@ -133,10 +147,31 @@ Se explorarán las funciones kernel lineal y rbf
 ```
 
 ## Árbol de clasificación
-Se explorará la opción de activar o no 'boosting',
-```{r}
+Se explorará la opción de activar o no 'boosting'.
 
+Observaciones de los árboles de clasificación:
+- Hay que separar la variable dependiente de los predictores en train y test
+- El vector con la variable dependiente debe ser un factor (al menos con C5.0)
+```{r}
+promoters <- read.csv('promoters.txt',header = FALSE,sep=',')
+df <- onehot(df=promoters[,-2], col_seq = 'V3', onehot_cols_name = 'P.', remove_col_seq = TRUE)
+train <- split_train_test(df)$train[,-1]
+test <- split_train_test(df)$test[,-1]
+train_labels <- as.factor(split_train_test(df)$train[,1])
+test_labels <- split_train_test(df)$test[,1]
+tree_m <- C5.0(train, train_labels)
+summary(tree_m)
 ```
+
+¿Cómo se intepretan los resultados?
+- La posición 57 de la codificación one-hot tiene una importancia del 100% en la creación del árbol de decisión.
+- El porcentaje de error durante el entrenamiento ha sido ```2.7```.
+
+Predicción:
+```{r}
+pre
+```
+
 
 ## Random Forest
 Se explorarán la opción de número de árboles n - 50, 100
@@ -146,12 +181,6 @@ Se explorarán la opción de número de árboles n - 50, 100
 
 # 3. Discusión final
 
-# Anexo. Puntos Importantes.
-#### 1. Implementar una función para realizar una transformación one-hot encoding de las secuencias del fichero de datos promoters.txt. En caso de no lograr la implementaación de dicha transformación, se puede utilizar el fichero promoters_onehot.txt con las secuencias codificados segun un one-hot para completar la actividad.
-#### 2. En cada algoritmo hay que realizar las siguientes etapas: 1) Entrenar el modelo 2) Predicción y Evaluacióndel algoritmo. Será necesario "tunear" diferentes valores de los hiperparámetros del algoritmo paraposteriormente evaluar su rendimiento.
-#### 3. Se debe aplicar la misma selección de datos training y test en todos los algoritmos. Utilizando la semilla aleatoria 123, para separar los datos en dos partes, una parte para training (67%) y otra partepara test (33%). Opcionalmente, se puede escoger otro tipo de partición del conjunto de training parahacer la validación como por ejemplo k-fold crossvalidation, boostrap, random splitting, etc. Lo que esimportante es mantener la misma selección para todos los algoritmos.
-#### 4. En todos los casos se evalua la calidad del algoritmo con la información obtenida de la funciónconfusionMatrix() del paquete caret.
-#### 5. Para la ejecución especifica de cada algoritmo se puede usar la función de cada algoritmo como sepresenta en el libro de referencia o usar el paquete caret con los diferentes modelos de los algoritmos. O incluso, hacer una versión mixta.
 
 
 

@@ -1,17 +1,23 @@
 ##################################### LIBRERÍAS ########################################
-library('class')
-library('kernlab')
-library('e1071')
-library('randomForest')
-library('C50')
-library('neuralnet')
-library('gmodels')
+library('class') # kNN
+library('kernlab') # Support Vector Machine (SVM)
+library('e1071') # Naive Bayes
+library('randomForest') # Random Forest
+library('C50') # Decision Tree
+library('neuralnet') # Artifical Neural Network
+library('gmodels') 
 
 ##################################### PARÁMETROS #######################################
 promoters <- read.csv('promoters.txt',header = FALSE,sep=',')
 
-# !! - La clase siempre debe ser la primera columna
-# !! - La secuencia siempre debe ser la última columna
+#!! - La clase o variable dependiente debe situarse en la primera columna.
+#!! - La secuencia de ADN debe situarse en la última columna.
+
+promoters <- promoters[,-2]
+
+##################################### DATAFRAMES #######################################
+df_onehot <- read.csv('promoters.txt',header = FALSE,sep=',')
+df_categorico <- sepseq(df = promoters, )
 
 ###################################### CÓDIGO ##########################################
 onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
@@ -74,16 +80,77 @@ onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
   # Devuelve el df con one-hot encoding
   return (df3)
 }
-
-split_train_test <- function(df, size = 0.7) {
+sepseq <- function (df, col_seq, sepseq_cols_name='N', remove_col_seq = FALSE) {
+  # Se asegura de que todas las seq tengan el mismo tamaño (de lo contrario salta ERROR)
+  f <- length(strsplit(df[col_seq][[1]], "")[[1]])
+  for (j in 1:nrow(df)) {
+    a = length(strsplit(df[j,col_seq], "")[[1]])
+    if (a == f) {
+      next
+    } else {
+      print('ERROR: al menos una secuencia no tiene el mismo tamaño que el resto.')
+      break
+    }
+  }
+  
+  # Crea una columna por cada nucleotido
+  num_cols <- f 
+  cols_sepseq <- list()
+  for (i in 1:num_cols) {
+    cols_sepseq <- append(cols_sepseq,paste(sepseq_cols_name,i,sep=""))
+  }
+  
+  # Añade las columnas (vacías) al nuevo DF
+  df2 <- df
+  for (i in cols_sepseq) {
+    df2[,i] <- NA
+  }
+  
+  # Mueve cada nucleótido a su correspondiente columna
+  for (j in 1:nrow(df2)) {
+    seq = strsplit(tolower(df2[j,col_seq]), "")[[1]] # convierte la seq en minuscula
+    seq_sepseq <- list()
+    for (i in seq) {
+      if ((i == 'a') | (i == 'g') | (i == 'c') | (i == 't')) {
+        seq_sepseq <- append(seq_sepseq, i)
+      } else {
+        print("ERROR: al menos un carácter de la secuencia introducida no corresponde a ningún nucleótido (A,G,C,T).")
+        break
+      }
+    }
+    for (k in 1:length(seq_sepseq)) {
+      ind <- grep(paste(sepseq_cols_name,k,sep=""), colnames(df2))
+      df2[j,ind] <- seq_sepseq[k]
+    }
+  }
+  
+  # Elimina o no la columna con la secuencia
+  if (remove_col_seq) {
+    df3 <- df2[,c(colnames(df2)[-grep(col_seq, colnames(df2))])]
+  } else {
+    df3 <- df2
+  }
+  
+  # Devuelve el df con los nucleótidos separados en columnas diferentes
+  return (df3)
+}
+split_train_test <- function(df, size = 0.7, seed = 123) {
+  # Establece la semilla
+  set.seed(seed)
+  
   # Devuelve un "diccionario" con el DF partido en train y test
   t <- floor(size * nrow(df))
   train_ind <- sample(seq_len(nrow(df)), size = t)
   train <- df[train_ind,]
   test <- df[-train_ind,]
+  
+  # Quita la semilla
+  set.seed(Sys.time())
+  
   return (list('train' = train, 'test' = test))
 }
 
+##################################### ALGORITMOS ######################################
 kneighbors <- function(train, test) {
   train_labels <- train[,1]
   test_labels <- test[,1]
@@ -97,48 +164,193 @@ kneighbors <- function(train, test) {
   kneighbors_7_p <- CrossTable(x = test_labels, y = kneighbors_7, prop.chisq=FALSE)
   return (list('k1'=kneighbors_1_p,'k3'=kneighbors_3_p,'k5'=kneighbors_5_p,'k7'=kneighbors_7_p))
 }
-
-ann <- function(train, test) {
+naive_bayes <- function (df_categorica) {
   
+  # - Se explorará la opción de activar o no 'laplace'.
+  # - Tanto las variables dependientes como independientes deben ser de tipo factor.
+  # - Se separan los clasificadores de train y test.
+  
+  # Transforma todas las columnas en factores
+  for (i in 1:ncol(df)) {
+    # Comprueba si es factor, de lo contrario lo transforma
+    if (is.factor(df[,i])) {
+      next
+    } else {
+      df[,i] <- as.factor(df[,i])
+    }
+  }
+  
+  # Split train y data
+  train <- split_train_test(df)$train[,-1]
+  test <- split_train_test(df)$test[,-1]
+  train_labels <- as.factor(split_train_test(df)$train[,1])
+  test_labels <- as.factor(split_train_test(df)$test[,1])
+  
+  # Laplace = 0
+  # Modelo y estadísticos
+  NBlp0 <- e1071::naiveBayes(train, train_labels, laplace = 0)
+  # Predicciones
+  pNBlp0 <- predict(NBlp0, test)
+  c1 <- confusionMatrix(pNBlp0, test_labels, dnn = c('Predicho','Actual'))
+  # Interpretación final:
+  # - El modelo tiene una precisión del 90%
+  # - Devuelve 3 falsos negativos
+  
+  # Laplace = 1
+  # Modelo y estadísticos
+  NBlp1 <- e1071::naiveBayes(train, train_labels, laplace = 1)
+  # Predicciones
+  pNBlp1 <- predict(NBlp1, test)
+  c2 <- confusionMatrix(pNBlp1, test_labels, dnn = c('Predicho','Actual'))
+  # Interpretación final:
+  # - El modelo tiene una precisión del 84%
+  # - Devuelve 2 falsos positivos 
+  # - Devuelve 1 falso negativo
+  
+  return (list('NBlp0'=c1, 'NBlp1'=c2))
+}
+decision_tree <- function(df_onehot) {
+  
+  # - Hay que separar la variable dependiente de los predictores en train y test
+  # - El vector con la variable dependiente debe ser un factor (al menos con C5.0)
+  
+  # Split train y data
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- as.factor(split_train_test(df_onehot)$train[,1])
+  test_labels <- as.factor(split_train_test(df_onehot)$test[,1])
+  
+  # Sin boosting
+  # Modelo y estadísticos
+  DTsb <- C5.0(train, train_labels)
+  # Predicciones
+  pDTsb <- predict(DTsb, test)
+  c1 <- confusionMatrix(pDTsb, test_labels, dnn = c('Predicho','Actual'))
+  
+  # Con boosting
+  # Modelo y estadísticos
+  DTnb <- C5.0(train, train_labels, trials = 10)
+  # Predicciones
+  pDTnb <- predict(DTnb, test)
+  c2 <- confusionMatrix(pDTnb, test_labels, dnn = c('Predicho','Actual'))
+  
+  return (list('DTsb'=c1, 'DTnb'=c2))
+}
+random_forest <- function(df_onehot) {
+  
+  # - Se explorarán la opción de número de árboles n - 50, 100
+  # - Hay que separar la variable dependiente de los predictores en train y test
+  # - La variable dependiente debe ser un factor
+  
+  # Convierte la clase en factor
+  df_onehot$V1 <- as.factor(df_onehot$V1)
+  
+  # Split train y data y labels
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- split_train_test(df_onehot)$train[,1]
+  test_labels <- split_train_test(df_onehot)$test[,1]
+  
+  # RF 50
+  # Modelo y estadísticos
+  RF50 <- randomForest(train, train_labels, ntree = 50)
+  # Predicciones
+  pRF50 <- predict(RF50, test)
+  confusionMatrix(pRF50, test_labels, dnn = c('Predicho','Actual'))
+  # Interpretación final:
+  # - El modelo tiene una precisión del 93%
+  # - Devuelve 1 falso positivo 
+  # - Devuelve 1 falso negativo
+  
+  # RF 100
+  # Modelo y estadísticos
+  RF100 <- randomForest(train, train_labels, ntree = 100)
+  # Predicciones
+  pRF100 <- predict(RF100, test)
+  c2 <- confusionMatrix(pRF100, test_labels, dnn = c('Predicho','Actual'))
+  # Interpretación final:
+  # - El modelo tiene una precisión del 87%
+  # - Devuelve 2 falsos positivos
+  # - Devuelve 2 falsos negativos
+  
+  return (list('RF50'=c1, 'RF100'=c2))
+}
+svm <- function(df_onehot) {
+  
+  # - Se explorarán las funciones kernel lineal y rbf.
+  # - Las variables independientes deben ser numéricas y estar normalizadas.
+  # - Las variables dependientes deben ser de tipo factor.
+  # - Se separan los clasificadores de train y test.
+  
+  # Transforma la clase en tipo factor
+  df_onehot[,1] <- as.factor(df_onehot[,1])
+  
+  # Split train y data
+  train <- split_train_test(df_onehot)$train
+  test <- split_train_test(df_onehot)$test
+  
+  # Kernel lineal
+  # Modelo y estadísticos
+  SVM_lineal <- ksvm(V1 ~ ., data = train, kernel = 'vanilladot')
+  # Predicciones
+  pSVM_lineal <- predict(SVM_lineal, test)
+  c1 <- confusionMatrix(pSVM_lineal, test$V1, dnn = c('Predicho','Actual'))
+  
+  # Intepretación:
+  # - El modelo tiene una precisión del 90%
+  # - Devuelve 2 falsos positivos 
+  # - Devuelve 1 falsos negativos
+  
+  # RBF
+  # Modelo y estadísticos
+  SVM_rbf <- ksvm(V1 ~ ., data = train, kernel = 'rbfdot')
+  # Predicciones
+  pSVM_rbf <- predict(SVM_rbf, test)
+  c2 <- confusionMatrix(pSVM_rbf, test$V1, dnn = c('Predicho','Actual'))
+  # Intepretación:
+  # - El modelo tiene una precisión del 90%
+  # - Devuelve 1 falso positivo
+  # - Devuelve 2 falsos negativos 
+  
+  return (list('SVM_lineal'=c1, 'SVM_rbf'=c2))
+}
+ann <- function(df_onehot) {
+  
+  # - Se explorarán el número de nodos de la capa oculta n - 4,5.
+  # - Se necesita una columna por cada tipo de clasificador.
+  # - Las variables dependientes deben ser de tipo numérico (entre 0 y 1).
+  
+  # Transforma la clase en tipo factor
+  df_onehot[,1] <- as.factor(df_onehot[,1])
+  
+  # Split train y data
+  train <- split_train_test(df_onehot)$train
+  test <- split_train_test(df_onehot)$test
+  
+  # ANN 4
+  # Modelo y estadísticos
+  ANN4 <- neuralnet(VD1+VD2~., data = train_ann,hidden = 4,linear.output = FALSE )
+  # Predicciones
+  pSVM_lineal <- compute(ann_m_5,test_ann[,1:8])$net.result
+  c1 <- confusionMatrix(pSVM_lineal, test$V1, dnn = c('Predicho','Actual'))
+  
+  # Intepretación:
+  # - El modelo tiene una precisión del 90%
+  # - Devuelve 2 falsos positivos 
+  # - Devuelve 1 falsos negativos
+  
+  # ANN 5
+  # Modelo y estadísticos
+  SVM_rbf <- ksvm(V1 ~ ., data = train, kernel = 'rbfdot')
+  # Predicciones
+  pSVM_rbf <- predict(SVM_rbf, test)
+  c2 <- confusionMatrix(pSVM_rbf, test$V1, dnn = c('Predicho','Actual'))
+  # Intepretación:
+  # - El modelo tiene una precisión del 90%
+  # - Devuelve 1 falso positivo
+  # - Devuelve 2 falsos negativos 
+  
+  return (list('SVM_lineal'=c1, 'SVM_rbf'=c2))
 }
 
-##################################### ALGORITMOS ######################################
-ann <- neuralnet(formula = V1 ~ ., data = train, hidden = 1)
-p <- sapply(compute(ann, test)$net.result, round, digits = 0)
-
-
-svm <- ksvm(target ~predictors, data = mydata, kernal = "rbfdot", c = 1)
-p <- predict(m, test, type = 'response')
-p$net.result
-
-decision_tree <- c5.0(train, class, trials = 1, costs, NULL)
-p <- predict(m, test, type = 'class')
-
-random_forest <- randomForest(train, class, ntree = 500, mtry = sqrt(p))
-p <- predict(m, test, type = 'response')
-
-###################################### PRE-PROCESAMIENTO ##############################
-df1 <- promoters[,-2] # quitamos la columna "name"
-df2 <- onehot(df=df1, col_seq = 'V3', onehot_cols_name = 'P.', remove_col_seq = TRUE)
-df2$V1 <- factor(df2$V1, levels = c("+", "-"), labels = c("Promotor", "No promotor"))
-
-###################################### SPLIT ##########################################
-train <- split_train_test(prueba)$train
-test <- split_train_test(prueba)$test
-train_labels <- df_train[,1]
-test_labels <- df_test[,1]
-
-##################################### RESULTADOS ####################################
-KN <- kneighbors(train, test)$k1
-NB <- 
-
-#########################################################################
-for (i in 1:ncol(df2)) {
-  df2[,i] <- as.character(df2[,i])
-}
-
-naive_bayes <- naiveBayes(V1 ~ ., data = train)
-pred <- predict(naive_bayes, test)
-naive_bayes_cr <- CrossTable(x = naive_bayes_p, y = test_labels, prop.chisq = FALSE)
-
-#########################################################################
+ann(df)
