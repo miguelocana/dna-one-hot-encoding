@@ -1,88 +1,141 @@
 ---
 title: Machine Learning - PEC3
 author: "Miguel Ocaña Acosta"
-date: "13/01/2020"
+date: "13/01/2021"
 output:
   html_document:
     toc: TRUE
   pdf_document:
     toc: TRUE
 ---
-
 <style>
   body {
+  font-size: 12pt;
   font-family: "Lato";
   text-align: justify;
   line-height : 25 px;
   }
 </style>
-
 ---
 
-Siguiendo la idea de lo propuesto para esta PEC (más allá de hacer un informe con los resultados), se ha desarrollado un informe dinámico con ```Shiny```, de tal manera que cualquier usuario pueda indagar sobre cualquier otra colección de promotores. En este informe dinámico se reutiliza el código que se ha utilizado igualmente para hacer este trabajo. 
+En esta PEC se ha desarrollado un script reutilizable para cualquier fichero de datos con promotores tal y como se estructuran en el archivo de este problema (*promoters.txt*). Para ello, se ha fragmentado las diferentes partes del código en funciones, que se irán explicando a lo largo del trabajo. La única pega es que no se graficará al final (apartado Discusión), algo pendiente de añadir en el futuro. Para utilizarlo con otros datos, se requiere cumplir una serie de condiciones:
 
-Se puede acceder al mismo a través del siguiente link: 
+1. El *dataframe* debe estar formado por dos columnas:
+  - la variable dependiente (el promotor).
+  - la secuencia de nucleótidos.
+2. La **variable dependiente** debe:
+  - Situarse en la primera columna.
+  - Ser de tipo carácter (```as.character()```).
+  - Estar formada por *+* o *-*.
+3. Las **secuencias de nucleótidos** deben:
+  - Situarse en la última columna.
+  - Ser de tipo carácter.
+  - Tener el mismo tamaño.
+  - Estar formadas por A, G, T o C (mayúsculas o minúsculas).
 
-1. La clase o variable dependiente debe situarse en la primera columna.
-2. La secuencia de ADN debe situarse en la última columna.
+\ 
 
-Paralelamente, se ha realizado la PEC siguiendo el workflow habitual para esta asignatura.
-
-# Consideraciones:
-#### 1. Implementar una función para realizar una transformación one-hot encoding de las secuencias del fichero de datos promoters.txt. En caso de no lograr la implementaación de dicha transformación, se puede utilizar el fichero promoters_onehot.txt con las secuencias codificados segun un one-hot para completar la actividad.
-#### 2. En cada algoritmo hay que realizar las siguientes etapas: 1) Entrenar el modelo 2) Predicción y Evaluacióndel algoritmo. Será necesario "tunear" diferentes valores de los hiperparámetros del algoritmo paraposteriormente evaluar su rendimiento.
-#### 3. Se debe aplicar la misma selección de datos training y test en todos los algoritmos. Utilizando la semilla aleatoria 123, para separar los datos en dos partes, una parte para training (67%) y otra partepara test (33%). Opcionalmente, se puede escoger otro tipo de partición del conjunto de training parahacer la validación como por ejemplo k-fold crossvalidation, boostrap, random splitting, etc. Lo que esimportante es mantener la misma selección para todos los algoritmos.
-#### 4. En todos los casos se evalua la calidad del algoritmo con la información obtenida de la funciónconfusionMatrix() del paquete caret.
-#### 5. Para la ejecución especifica de cada algoritmo se puede usar la función de cada algoritmo como sepresenta en el libro de referencia o usar el paquete caret con los diferentes modelos de los algoritmos. O incluso, hacer una versión mixta.
-
-# 1. Transformación de los datos
-
-Primero, se importan los datos y se estudian para ver que tratamientos necesitan.
+Por ejemplo:
 ```{r}
-promoters <- read.csv('promoters.txt',header = FALSE,sep=',')
-str(promoters)
+data.frame(promoter=c('+','-','+','-','-','+'),seq=c('agtt','ACTG','GCTA','actg','gtca','ccct'))
 ```
 
-Ahora transformamos las seqcuencias en one-hot encoding. Existe una opción muy conocida llamada *dummy*, que funciona de la siguiente manera:
-```{r}
-tutorial de dummy
+\ 
+
+
+# Consideraciones de la PEC
+
+**1.** Implementar una función para realizar una transformación one-hot encoding de las secuencias del fichero de datos promoters.txt. En caso de no lograr la implementaación de dicha transformación, se puede utilizar el fichero promoters_onehot.txt con las secuencias codificados segun un one-hot para completar la actividad.
+
+**2.** En cada algoritmo hay que realizar las siguientes etapas: 1) Entrenar el modelo 2) Predicción y Evaluacióndel algoritmo. Será necesario "tunear" diferentes valores de los hiperparámetros del algoritmo paraposteriormente evaluar su rendimiento.
+
+**3.** Se debe aplicar la misma selección de datos training y test en todos los algoritmos. Utilizando la semilla aleatoria 123, para separar los datos en dos partes, una parte para training (67%) y otra partepara test (33%). Opcionalmente, se puede escoger otro tipo de partición del conjunto de training parahacer la validación como por ejemplo k-fold crossvalidation, boostrap, random splitting, etc. Lo que esimportante es mantener la misma selección para todos los algoritmos.
+
+**4.** En todos los casos se evalua la calidad del algoritmo con la información obtenida de la funciónconfusionMatrix() del paquete caret.
+
+**5.** Para la ejecución especifica de cada algoritmo se puede usar la función de cada algoritmo como sepresenta en el libro de referencia o usar el paquete caret con los diferentes modelos de los algoritmos. O incluso, hacer una versión mixta.
+
+\ 
+
+# Transformación de los datos
+
+## Importar los datos
+En primer lugar, se importan los datos con los que se va a trabajar. El fichero *promoters.txt* no viene con cabecera (```header```) y está separada por comas (```sep```). Al mismo tiempo, se estudian brevemente los mismos:
+```{r} 
+# definir aquí tu csv
+promoters <- read.csv('promoters.txt',header = FALSE,sep=',') # se importan
+str(promoters) # se estudian
 ```
 
-Importamos el csv:
+\ 
+
+En los modelos que se van a utilizar, no es necesario usar más que la etiqueta del promotor y la secuencia de nucleótidos. Por eso se puede omitir la segunda columna, que corresponde al nombre de la secuencia promotora.
 ```{r}
-promoters <- read.csv('promoters.txt',header = FALSE,sep=',')
-promoters_onehot <- read.csv('promoters_onehot.txt', header = TRUE, sep=' ')
+promoters2 <- promoters[,-2]
 ```
 
-Ahora, cómo funciona el one-hot encoding:
+\ 
+
+A partir de aquí, la idea de clasificar las secuencias con X tamaño consiste en entrenar modelos que estudian la posición y el nucleótido que lo ocupa. Por eso es importante que las secuencias compartan el mismo tamaño (o al menos en este caso), porque el procesamiento que se va a llevar a cabo de los datos tratará principalmente de dividir cada posición como una columna diferente dentro del *dataframe*. Para ello, sufrirán dos transformaciones diferentes:
+
+- Por un lado, el **one-hot encoding**, que codificará los nucleótidos en secuencias de 1 y 0 siguiendo esta regla:
+
+  - T = (1,0,0,0)
+  - C = (0,1,0,0)
+  - G = (0,0,1,0)
+  - A = (0,0,0,1)
+
+\ 
+
+Como cada nucleótido se codifica en 4 dígitos diferentes, se crea una columna por cada nucleótido multiplicado por 4. En este problema las secuencias se conforman de 57 nucleótidos, por tanto: 
+
+$n_{columnas} = 57*4 = 228$
+
+\ 
+
+- Por otro lado, uno de los modelos que se va a utilizar es Naïve Bayes, que trabaja con valores de entrenamiento **categóricos**, y bastará con dividir cada nucleótido en una columna diferente.
+
+En el resto de apartados, se mostrará en primer lugar la función y a continuación se desglosará para ir explicando paso a paso cómo trabaja.
+
+\ 
+
+## One-Hot Encoding
+
+Valores de entrada: 
+
+- ```df```: *dataframe* con la etiqueta de promotor y su secuencia.
+- ```col_seq```: nombre (de tipo carácter) de la columna con la secuencia de nucleótidos.
+- ```onehot_cols_name```: prefijo que asignará la función a cada columna que cree, por defecto **H**.
+- ```remove_col_seq```: opción para eliminar la columna con la secuencia tras la codificación, por defecto ```TRUE```.
+
 ```{r}
-onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
-  # Se asegura de que todas las seq tengan el mismo tamaño (de lo contrario salta ERROR)
+onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = TRUE) {
+  # Se asegura de que todas las seq tengan el mismo tama?o (de lo contrario salta ERROR)
   f <- length(strsplit(df[col_seq][[1]], "")[[1]])
   for (j in 1:nrow(df)) {
     a = length(strsplit(df[j,col_seq], "")[[1]])
     if (a == f) {
       next
     } else {
-      print('ERROR: al menos una secuencia no tiene el mismo tamaño que el resto.')
+      print('ERROR: al menos una secuencia no tiene el mismo tama?o que el resto.')
       break
     }
   }
   
-  # Crea una columna por cada dígito del one-hot
+  # Crea una columna por cada d?gito del one-hot
   num_cols <- f * 4
   cols_onehot <- list()
   for (i in 1:num_cols) {
     cols_onehot <- append(cols_onehot,paste(onehot_cols_name,i,sep=""))
   }
   
-  # Añade las columnas (vacías) al nuevo DF
+  # A?ade las columnas (vac?as) al nuevo DF
   df2 <- df
   for (i in cols_onehot) {
     df2[,i] <- NA
   }
   
-  # Traducción de seq a one-hot encoding
+  # Traducci?n de seq a one-hot encoding
   for (j in 1:nrow(df2)) {
     seq = strsplit(tolower(df2[j,col_seq]), "")[[1]] # convierte la seq en minuscula
     seq_onehot <- list()
@@ -96,7 +149,7 @@ onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
       } else if (i == 't') {
         seq_onehot <- append(seq_onehot, c(1,0,0,0))
       } else {
-        print("ERROR: al menos un carácter de la secuencia introducida no corresponde a ningún nucleótido (A,G,C,T).")
+        print("ERROR: al menos un car?cter de la secuencia introducida no corresponde a ning?n nucle?tido (A,G,C,T).")
         break
       }
     }
@@ -108,79 +161,1133 @@ onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
   
   # Elimina o no la columna con la secuencia
   if (remove_col_seq) {
-    df3 <- df2[,c(x[-grep(col_seq, colnames(df2))])]
+    df3 <- df2[,c(colnames(df2)[-grep(col_seq, colnames(df2))])]
   } else {
     df3 <- df2
   }
+  
+  # Devuelve el df con one-hot encoding
+  return (df3)
 }
-
 ```
 
-La columna con el nombre de los promotores no da aporta ninguna información útil al modelo así que se elimina del df.
-```{r}
-
-```
 \ 
-# 2. Clasificación de los datos
-## k-Nearest Neighbour
-Se explorarán los valores para el número de vecinos k = 1,3,5,7
-```{r}
 
+--- 
+
+**Cómo funciona**
+
+Primero, guarda el tamaño de la primera secuencia, que utiliza como referencia para el tamaño y compara con el resto de secuencias. Se asegura de que todas tengan el mismo tamaño, de lo contrario, lanza un error.
+```{r eval=FALSE}
+f <- length(strsplit(df[col_seq][[1]], "")[[1]])  # coge el tamaño
+for (j in 1:nrow(df)) {                           # bucle para asegurar tamaño equitativo
+  a = length(strsplit(df[j,col_seq], "")[[1]])
+  if (a == f) {
+    next
+  } else {
+    print('ERROR: al menos una secuencia no tiene el mismo tama?o que el resto.')
+    break
+  }
+}
 ```
+
+\ 
+
+Si todo cumple, multiplica por 4 la variable que se guardó con el tamaño de la secuencia y genera ese número de nombres con el prefijo que se haya establecido (```onehot_cols_name```) + posición, guardándolos en una lista.
+```{r eval=FALSE}
+num_cols <- f * 4       # número de columnas
+cols_onehot <- list()   # lista vacía para unir nombres en bucle
+for (i in 1:num_cols) { # bucle para unir los nombres generados
+  cols_onehot <- append(cols_onehot,paste(onehot_cols_name,i,sep=""))
+}
+```
+
+\ 
+
+Crea una columna vacía por cada nombre que haya en la lista creada anteriormente. Además, asigna en una variable ```df2``` el *dataframe*. Se consideran buenas prácticas cuando se trabaja demasiado un *dataframe* y en algún momento se quiera volver atrás.
+```{r eval=FALSE}
+df2 <- df
+for (i in cols_onehot) {
+  df2[,i] <- NA
+}
+```
+
+\ 
+
+La codificación ocurre con 3 bucles. En primer lugar, recorre cada fila del *dataframe* para guardar en una variable la secuencia de la columna establecida en los parámetros de la función (```col_seq```) y convertirla en minúsculas (```tolower()```). En esta variable se guarda como una lista con los nucleótidos separados (```strsplit()```).
+```{r eval=FALSE}
+for (j in 1:nrow(df2)) {
+  seq = strsplit(tolower(df2[j,col_seq]), "")[[1]]
+  seq_onehot <- list()
+```
+
+\ 
+
+En ese punto del bucle, crea una lista vacía a la que se irán uniendo los nucleótidos codificados en *one-hot*, siguiendo las reglas que especificamos. Empieza otro bucle por cada nucleótido de la lista creada anteriormente que irá codificando, y si alguna posición no correspondiera a un nucleótido, lanza error.
+```{r eval=FALSE}
+  seq_onehot <- list()  # lista vacía para unir nucleótidos codificados
+  for (i in seq) {
+    if (i == 'a') {     # serie de condiciones para el one-hot
+      seq_onehot <- append(seq_onehot, c(0,0,0,1))
+    } else if (i == 'g') {
+      seq_onehot <- append(seq_onehot, c(0,0,1,0))
+    } else if (i == 'c') {
+      seq_onehot <- append(seq_onehot, c(0,1,0,0))
+    } else if (i == 't') {
+      seq_onehot <- append(seq_onehot, c(1,0,0,0))
+    } else {
+      print("ERROR: al menos un car?cter de la secuencia introducida no corresponde a ning?n nucle?tido (A,G,C,T).")
+      break
+    }
+  }
+  for (k in 1:length(seq_onehot)) { # el siguiente bucle
+```
+
+\ 
+
+Dentro aún del bucle de la fila, termina con otro que busca el nombre de la columna (```grep()```, expresión regular igual que en *bash*) para encontrar su índice e ir pegando en cada una el valor de la codificación.
+```{r eval=FALSE}
+  for (k in 1:length(seq_onehot)) { # empieza el bucle sobre el tamaño de la secuencia codificada
+    ind <- grep(paste(onehot_cols_name,k,sep=""), colnames(df2))
+    df2[j,ind] <- seq_onehot[k]     # asigna el valor de la codificación a la posición
+  }
+```
+
+\ 
+
+Terminada la codificación, se añadió una *feature* que permite eliminar o no la columna original, en un principio para comprobar si la codificación es correcta.
+```{r eval=FALSE}
+# Elimina o no la columna con la secuencia
+if (remove_col_seq) {
+  df3 <- df2[,c(colnames(df2)[-grep(col_seq, colnames(df2))])]
+} else {
+  df3 <- df2
+}
+```
+
+\ 
+
+## Transformación de categóricos
+
+Valores de entrada:
+
+- ```df```: *dataframe* con la etiqueta de promotor y su secuencia.
+- ```col_seq```: nombre (de tipo carácter) de la columna con la secuencia de nucleótidos.
+- ```sepseq_cols_name```: prefijo que asignará la función a cada columna que cree, por defecto **N**.
+- ```remove_col_seq```: opción para eliminar la columna con la secuencia tras la codificación, por defecto ```TRUE```.
+
+```{r}
+sepseq <- function (df, col_seq, sepseq_cols_name='N', remove_col_seq = TRUE) {
+  f <- length(strsplit(df[col_seq][[1]], "")[[1]])
+  for (j in 1:nrow(df)) {
+    a = length(strsplit(df[j,col_seq], "")[[1]])
+    if (a == f) {
+      next
+    } else {
+      print('ERROR: al menos una secuencia no tiene el mismo tama?o que el resto.')
+      break
+    }
+  }
+  num_cols <- f 
+  cols_sepseq <- list()
+  for (i in 1:num_cols) {
+    cols_sepseq <- append(cols_sepseq,paste(sepseq_cols_name,i,sep=""))
+  }
+  
+  df2 <- df
+  for (i in cols_sepseq) {
+    df2[,i] <- NA
+  }
+  
+  for (j in 1:nrow(df2)) { # ----------------------- ÚNICA DIFERENCIA
+    seq = strsplit(tolower(df2[j,col_seq]), "")[[1]] 
+    seq_sepseq <- list()
+    for (i in seq) {
+      if ((i == 'a') | (i == 'g') | (i == 'c') | (i == 't')) {
+        seq_sepseq <- append(seq_sepseq, i)
+      } else {
+        print("ERROR: al menos un car?cter de la secuencia introducida no corresponde a ning?n nucle?tido (A,G,C,T).")
+        break
+      }
+    }
+    for (k in 1:length(seq_sepseq)) {
+      ind <- grep(paste(sepseq_cols_name,k,sep=""), colnames(df2))
+      df2[j,ind] <- seq_sepseq[k]
+    }
+  }
+  
+  if (remove_col_seq) {
+    df3 <- df2[,c(colnames(df2)[-grep(col_seq, colnames(df2))])]
+  } else {
+    df3 <- df2
+  }
+  
+  return (df3)
+}
+```
+
+--- 
+
+**Cómo funciona**
+
+La función es prácticamente igual que la anterior, con la única diferencia en el bucle de codificación. Aquí el bucle recorre lo mismo, pero en vez de codificar, guarda los nucleótidos como están y los utiliza para asignarlos a las diferentes columnas.
+```{r eval=FALSE}
+  for (j in 1:nrow(df2)) {    # ----------------------- ÚNICA DIFERENCIA
+    seq = strsplit(tolower(df2[j,col_seq]), "")[[1]] 
+    seq_sepseq <- list()
+    for (i in seq) {
+      if ((i == 'a') | (i == 'g') | (i == 'c') | (i == 't')) {
+        seq_sepseq <- append(seq_sepseq, i)
+      } else {
+        print("ERROR: al menos un car?cter de la secuencia introducida no corresponde a ning?n nucle?tido (A,G,C,T).")
+        break
+      }
+    }
+    for (k in 1:length(seq_sepseq)) {
+      ind <- grep(paste(sepseq_cols_name,k,sep=""), colnames(df2))
+      df2[j,ind] <- seq_sepseq[k]
+    }
+  }
+```
+
+\ 
+
+## Otras funciones
+Estas son otras funciones útiles que han sido necesarias para el funcionamiento del *script*.
+
+\ 
+
+### División de datos en train y test
+Divide aleatoriamente el *dataframe* en *train* y *test*. Valores de entrada:
+
+- ```df```: el *dataframe*.
+- ```size```: proporción de la división, en concreto para *train*, el resto de *test*.
+- ```seed```: la semilla que se establece para la división, por defecto ```123```.
+
+```{r}
+split_train_test <- function(df, size = 0.7, seed = 123) {
+  # Establece la semilla
+  set.seed(seed)
+  
+  # Devuelve un "diccionario" con el DF partido en train y test
+  t <- floor(size * nrow(df))
+  train_ind <- sample(seq_len(nrow(df)), size = t)
+  train <- df[train_ind,]
+  test <- df[-train_ind,]
+  
+  # Quita la semilla
+  set.seed(Sys.time())
+  
+  return (list('train' = train, 'test' = test))
+}
+```
+
+\ 
+
+
+
+### Transformación de promotor numérico - factor
+Función que se ha creado para el algoritmo ***Artificial Neural Network***, pues necesita valores numéricos en la variable dependiente.
+
+```{r}
+num_to_cat <- function (vector) {
+  # Está pensada para la variable dependiente,
+  # la primera columna debe ser la clase.
+  # Transforma los promotores en factores + (1) y - (0).
+  for (i in 1:length(vector)) {
+    if (vector[i]==1) {
+      vector[i] <- '+'
+    } else {
+      vector[i] <- '-'
+    }
+  }
+  vector <- as.factor(vector)
+  return (vector)
+}
+```
+
+\ 
+
+### Transformación de promotor factor - numérico
+Función que se ha creado para el algoritmo ***Artificial Neural Network***, devuelve los valores transformados anteriormente a tipo factor.
+
+```{r}
+cat_to_num <- function (vector) {
+  # Está pensada para la variable dependiente,
+  # la primera columna debe ser la clase.
+  # Transforma los promotores en 1 (+) y 0 (-).
+  for (i in 1:length(vector)) {
+    if (vector[i]=='+') {
+      vector[i] <- 1
+    } else {
+      vector[i] <- 0
+    }
+  }
+  vector <- as.numeric(vector)
+  return (vector)
+}
+```
+
+\ 
+
+---
+
+# Clasificación de los datos
+Todas las funciones creadas para los modelos engloban entrenamiento y predicción, pues están pensadas para hacernos una idea global de cómo se comportan frente a diferentes conjuntos de datos pequeños, en este caso los promotores y sus secuencias. 
+
+En esta parte del *workflow*, es necesario recordar y ajustar los parámetros necesarios:
+
+- ```df_onehot```: el *dataframe* codificado en ***one-hot encoding***.
+- ```df_categorico```: el *dataframe* con los nucleótidos divididos en columnas.
+- ```formula```: fórmula necesaria para los modelos ***Support Vector Machine*** y ***Artifical Neural Network***, como veremos más adelante.
+
+\ 
+
+Los definimos todos con las funciones que hemos creado hasta ahora:
+```{r}
+# definir aquí tu DF (del csv importado) y columna con secuencia
+df_onehot <- onehot(df = promoters2, col_seq = 'V3')
+df_categorico <- sepseq(df = promoters2, col_seq = 'V3')
+formula <- V1 ~ .
+```
+
+\ 
+
+Además, cargamos la librería para la matriz de confusión, que se utilizará en todos los casos: 
+```{r}
+library('caret')
+```
+
+\ 
+
+Como veníamos haciendo anteriormente, primero se adjuntará la función del modelo que se ha creado, y se explicarán sus partes antes de entrar en *Entrenar el modelo* y *Predicción y Evaluación*.
+
+\ 
+
+## k-Nearest Neighbour
+**Condición**: se explorarán los valores para el número de vecinos k = 1,3,5,7.
+
+Librería utilizada:
+```{r}
+library('class')
+```
+
+\ 
+
+Variables de entrada:
+
+- ```df_onehot```: el *dataframe* codificado en ***one-hot encoding***.
+
+```{r}
+kneighbors <- function(df_onehot) {
+  
+  # Split train y data
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- as.factor(split_train_test(df_onehot)$train[,1])
+  test_labels <- as.factor(split_train_test(df_onehot)$test[,1])
+  
+  # kNN 1
+  # Modelo y estad?sticos
+  knn1 <- knn(train = train, test = test, cl = train_labels, k = 1)
+  # Predicciones
+  kneighbors_1_p <- confusionMatrix(knn1, test_labels, dnn = c('Predicho','Actual'))
+
+  # kNN 3
+  # Modelo y estad?sticos
+  knn3 <- knn(train = train, test = test, cl = train_labels, k = 3)
+  # Predicciones
+  kneighbors_3_p <- confusionMatrix(knn3, test_labels, dnn = c('Predicho','Actual'))
+  
+  # kNN 5
+  # Modelo y estad?sticos
+  knn5 <- knn(train = train, test = test, cl = train_labels, k = 5)
+  # Predicciones
+  kneighbors_5_p <- confusionMatrix(knn5, test_labels, dnn = c('Predicho','Actual'))
+  
+  # kNN 7
+  # Modelo y estad?sticos
+  knn7 <- knn(train = train, test = test, cl = train_labels, k = 7)
+  # Predicciones
+  #kneighbors_7_p <- CrossTable(x = test_labels, y = knn7, prop.chisq=FALSE)
+  kneighbors_7_p <- confusionMatrix(knn7, test_labels, dnn = c('Predicho','Actual'))
+
+  return (list('k1'=kneighbors_1_p,'k3'=kneighbors_3_p,'k5'=kneighbors_5_p,'k7'=kneighbors_7_p))
+}
+```
+
+--- 
+
+**Cómo funciona**
+
+Se separa el *dataframe* en *train* y *test* con nuestra función. Además, para este modelo es necesario separar las etiquetas, es decir, las variables dependientes.
+```{r eval=FALSE}
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- as.factor(split_train_test(df_onehot)$train[,1])
+  test_labels <- as.factor(split_train_test(df_onehot)$test[,1])
+```
+
+\ 
+
+En el modelo de esta librería el entrenamiento y predicción ocurren al mismo tiempo, es decir, nos devuelve la predicción de los valores que utilizará para la matriz de confusión.
+```{r eval=FALSE}
+  knn1 <- knn(train = train, test = test, cl = train_labels, k = 1)
+```
+
+\ 
+
+Guarda en una variable el resultado de la matriz de confusión.
+```{r eval=FALSE}
+  kneighbors_1_p <- confusionMatrix(knn1, test_labels)
+```
+
+\ 
+
+Estos dos últimos pasos se repiten tres veces más cambiando el número de vecino ```k``` a 3, 5 y 7.
+
+\ 
+
+### Entrenamiento del modelo
+```{r}
+KNN <- kneighbors(df_onehot)
+```
+
+\ 
+
+### Predicción y evaluación
+
+**kNN con k = 1**
+```{r}
+KNN$k1
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- Buena
+- El modelo tiene una precisión del 81%
+- Devuelve 5 falsos positivos
+- Devuelve 1 falso negativo
+
+\ 
+
+**kNN con k = 3**
+```{r}
+KNN$k3
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- Buena
+- El modelo tiene una precisión del 81%
+- Devuelve 4 falsos positivos
+- Devuelve 2 falsos negativos
+
+\ 
+
+**kNN con k = 5**
+```{r}
+KNN$k5
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- Buena
+- El modelo tiene una precisión del 75%
+- Devuelve 6 falsos positivos
+- Devuelve 2 falsos negativos
+
+\ 
+
+**kNN con k = 7**
+```{r}
+KNN$k7
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Buena**
+- El modelo tiene una precisión del **81%**
+- Devuelve 5 falsos positivos
+- Devuelve 1 falso negativo
+
+\ 
 
 ## Naïve Bayes
-Se explorará la opción de activar o no 'laplace'
-```{r}
+**Condición**: Se explorará la opción de activar o no 'laplace'.
 
+Librería utilizada:
+```{r}
+library('e1071')
 ```
+
+\ 
+
+Variables de entrada:
+
+- ```df```: el *dataframe* con los nucleótidos sin codificación numérica. 
+
+```{r}
+naive_bayes <- function (df) {
+  
+  # - Se explorar? la opci?n de activar o no 'laplace'.
+  # - Tanto las variables dependientes como independientes deben ser de tipo factor.
+  # - Se separan los clasificadores de train y test.
+  
+  # Transforma todas las columnas en factores
+  for (i in 1:ncol(df)) {
+    # Comprueba si es factor, de lo contrario lo transforma
+    if (is.factor(df[,i])) {
+      next
+    } else {
+      df[,i] <- as.factor(df[,i])
+    }
+  }
+  
+  # Split train y data
+  train <- split_train_test(df)$train[,-1]
+  test <- split_train_test(df)$test[,-1]
+  train_labels <- as.factor(split_train_test(df)$train[,1])
+  test_labels <- as.factor(split_train_test(df)$test[,1])
+  
+  # Laplace = 0
+  # Modelo y estad?sticos
+  NBlp0 <- e1071::naiveBayes(train, train_labels, laplace = 0)
+  # Predicciones
+  pNBlp0 <- predict(NBlp0, test)
+  c1 <- confusionMatrix(pNBlp0, test_labels, dnn = c('Predicho','Actual'))
+  # Interpretaci?n final:
+  # - El modelo tiene una precisi?n del 90%
+  # - Devuelve 3 falsos negativos
+  
+  # Laplace = 1
+  # Modelo y estad?sticos
+  NBlp1 <- e1071::naiveBayes(train, train_labels, laplace = 1)
+  # Predicciones
+  pNBlp1 <- predict(NBlp1, test)
+  c2 <- confusionMatrix(pNBlp1, test_labels, dnn = c('Predicho','Actual'))
+  # Interpretaci?n final:
+  # - El modelo tiene una precisi?n del 84%
+  # - Devuelve 2 falsos positivos 
+  # - Devuelve 1 falso negativo
+  
+  return (list('NBlp0'=c1, 'NBlp1'=c2))
+}
+```
+
+--- 
+
+**Cómo funciona**
+
+Empieza con un bucle recorriendo cada columna de los nucleótidos para convertirlos en factores. Esto es necesario porque, como comentábamos antes, el modelo de *Naïve Bayes* necesita que los datos de entrenamiento sean de este tipo.
+```{r eval=FALSE}
+  # Transforma todas las columnas en factores
+  for (i in 1:ncol(df)) {
+    # Comprueba si es factor, de lo contrario lo transforma
+    if (is.factor(df[,i])) {
+      next
+    } else {
+      df[,i] <- as.factor(df[,i])
+    }
+  }
+```
+
+\ 
+
+Una vez hecha la conversión, divide el *dataframe* en *train* y *test*, del mismo modo que en ***kNN***, con las etiquetas de los promotores separadas.
+```{r eval=FALSE}
+  # Split train y data
+  train <- split_train_test(df)$train[,-1]
+  test <- split_train_test(df)$test[,-1]
+  train_labels <- as.factor(split_train_test(df)$train[,1])
+  test_labels <- as.factor(split_train_test(df)$test[,1])
+```
+
+\ 
+
+Entrena el modelo con ```laplace = 0```.
+```{r eval=FALSE}
+  NBlp0 <- e1071::naiveBayes(train, train_labels, laplace = 0)
+```
+
+\ 
+
+Guarda en una variable los resultados de la predicción (```predict()```). Seguidamente hace lo mismo con el la matriz de confusión.
+```{r eval=FALSE}
+  pNBlp0 <- predict(NBlp0, test)
+  c1 <- confusionMatrix(pNBlp0, test_labels, dnn = c('Predicho','Actual'))
+```
+
+\ 
+
+Repite lo mismo una vez más con ```laplace = 1```.
+
+\ 
+
+### Entrenamiento del modelo
+```{r}
+NB <- naive_bayes(df_categorico)
+```
+
+\ 
+
+### Predicción y evaluación
+
+*$laplace = 0$*
+```{r}
+NB$NBlp0
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **90%**
+- Devuelve 3 falsos negativos
+
+\ 
+
+*$laplace = 1$*
+```{r}
+NB$NBlp1
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **90%**
+- Devuelve 1 falso positivo
+- Devuelve 2 falsos negativos
+
+\ 
 
 ## Artificial Neural Network
-Se explorarán el número de nodos de la capa oculta n - 4,5
-```{r}
+**Condición**: Se explorarán el número de nodos de la capa oculta n = 4,5.
 
+Librería utilizada:
+```{r}
+library('neuralnet')
 ```
+
+\ 
+
+Variables de entrada:
+
+- ```df_onehot```: el *dataframe* codificado en ***one-hot encoding***.
+- ```formula```: la fórmula para el modelo.
+
+```{r}
+ann <- function(df_onehot, formula) {
+  
+  # Se transforma la variable dependiente en tipo numérico
+  df_onehot[,1] <- cat_to_num(df_onehot[,1])
+  # Split train y data
+  train <- split_train_test(df_onehot)$train
+  test <- split_train_test(df_onehot)$test
+  
+  # ANN 4
+  # Modelo y estad?sticos
+  ANN4 <- neuralnet(formula, data = train, hidden = 4,linear.output = FALSE )
+  # Predicciones
+  pANN4 <- round(compute(ANN4,test)$net.result,digits=0)
+  # Se transforma en factores '+' o '-' y se evalúa el modelo
+  test4 <- test
+  test4[,1] <- num_to_cat(test4[,1])
+  pANN4 <- num_to_cat(pANN4)
+  c1 <- confusionMatrix(pANN4, test4[,1], dnn = c('Predicho','Actual'))
+  
+  # ANN 5
+  # Modelo y estad?sticos
+  ANN5 <- neuralnet(formula, data = train, hidden = 5,linear.output = FALSE )
+  # Predicciones
+  pANN5 <- round(compute(ANN5,test)$net.result,digits=0)
+  # Se transforma en factores '+' o '-' y se evalúa el modelo
+  test5 <- test
+  test5[,1] <- num_to_cat(test5[,1])
+  pANN5 <- num_to_cat(pANN5)
+  c2 <- confusionMatrix(pANN5, test5[,1], dnn = c('Predicho','Actual'))
+  
+  return (list('ANN4'=c1, 'ANN5'=c2))
+}
+```
+
+--- 
+
+**Cómo funciona**
+
+En este modelo, es necesario que los promotores sean numéricos, por eso, primero se convierten con la función que hemos creado anteriormente. Seguidamente, se divide el *dataframe* en *train* y *test*.
+```{r eval=FALSE}
+  df_onehot[,1] <- cat_to_num(df_onehot[,1]) # convierte a numérico
+  train <- split_train_test(df_onehot)$train
+  test <- split_train_test(df_onehot)$test
+```
+
+\ 
+
+Entrena el modelo con la fórmula que definimos antes ```V1 ~ .,```, donde *V1* es el nombre de la columna con la clase y *.* son el resto de columnas. Se define el número de capas ocultas con ```hidden```.
+```{r eval=FALSE}
+  ANN4 <- neuralnet(formula, data = train, hidden = 4,linear.output = FALSE )
+```
+
+\ 
+
+Los resultados predichos se generan con ```compute()``` y se guardan redondeados (```round()```), puesto que devuelven resultados entre 0 y 1, y los necesitamos enteros para volver a clasificarlos en *+* y *-*.
+```{r eval=FALSE}
+  pANN4 <- round(compute(ANN4,test)$net.result,digits=0)
+```
+
+\ 
+
+Con los resultados redondeados, se vuelven a transformar en factores con la función que creamos antes. Finalmente, se guardan los resultados de la matriz de confusión.
+```{r eval=FALSE}
+  test4 <- test
+  test4[,1] <- num_to_cat(test4[,1])
+  pANN4 <- num_to_cat(pANN4)
+  c1 <- confusionMatrix(pANN4, test4[,1], dnn = c('Predicho','Actual'))
+```
+
+\ 
+
+Se repite lo mismo cambiando el número de capas ocultas ```hidden = 5```.
+
+\ 
+
+### Entrenamiento del modelo
+Se entrena el modelo
+```{r}
+ANN <- ann(df_onehot, formula) 
+```
+
+\ 
+
+### Predicción y evaluación
+```{r}
+ANN$ANN4
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **93%**
+- Devuelve 1 falso positivo
+- Devuelve 1 falso negativo
+
+\ 
+
+```{r}
+ANN$ANN5
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Excelente**
+- El modelo tiene una precisión del **96%**
+- Devuelve 1 falso negativo
+
+\ 
 
 ## Support Vector Machine
-Se explorarán las funciones kernel lineal y rbf
-```{r}
+**Condición**: Se explorarán las funciones kernel lineal y rbf.
 
+Librería utilizada:
+```{r}
+library('kernlab')
 ```
+
+\ 
+
+Variables de entrada:
+
+- ```df_onehot```: el *dataframe* codificado en ***one-hot encoding***.
+- ```formula```: la fórmula para el modelo.
+
+```{r}
+svm <- function(df_onehot, formula) {
+
+  # Transforma la clase en tipo factor
+  df_onehot[,1] <- as.factor(df_onehot[,1])
+  
+  # Split train y data
+  train <- split_train_test(df_onehot)$train
+  test <- split_train_test(df_onehot)$test
+  
+  # Kernel lineal
+  # Modelo y estad?sticos
+  SVM_lineal <- ksvm(formula, data = train, kernel = 'vanilladot')
+  # Predicciones
+  pSVM_lineal <- predict(SVM_lineal, test)
+  c1 <- confusionMatrix(pSVM_lineal, test[,1], dnn = c('Predicho','Actual'))
+  
+  # RBF
+  # Modelo y estad?sticos
+  SVM_rbf <- ksvm(formula, data = train, kernel = 'rbfdot')
+  # Predicciones
+  pSVM_rbf <- predict(SVM_rbf, test)
+  c2 <- confusionMatrix(pSVM_rbf, test[,1], dnn = c('Predicho','Actual'))
+  
+  return (list('SVM_lineal'=c1, 'SVM_rbf'=c2))
+}
+```
+--- 
+
+**Cómo funciona**
+
+Para el modelo de esta librería, se necesita que la variable dependiente sea un factor, por eso lo primero que se hace es una simple conversión. Seguidamente, se divide en *train* y *test*.
+```{r eval=FALSE}
+  df_onehot[,1] <- as.factor(df_onehot[,1])
+  train <- split_train_test(df_onehot)$train
+  test <- split_train_test(df_onehot)$test
+```
+
+\ 
+
+Se entrena el modelo con *vanilladot* para el lineal.
+```{r eval=FALSE}
+  SVM_lineal <- ksvm(formula, data = train, kernel = 'vanilladot')
+```
+
+\ 
+
+Se guarda en una variable el resultado de la predicción que se utiliza para la matriz de confusión.
+```{r eval=FALSE}
+  pSVM_lineal <- predict(SVM_lineal, test)
+  c1 <- confusionMatrix(pSVM_lineal, test[,1], dnn = c('Predicho','Actual'))
+```
+
+\ 
+
+Se hace lo mismo para el ***rbf***, modificando simplemente ```kernel = 'rbfdot'```
+
+\ 
+
+### Entrenamiento del modelo
+```{r}
+SVM <- svm(df_onehot, formula)
+```
+
+\ 
+
+### Predicción y evaluación
+```{r}
+SVM$SVM_lineal
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **90%**
+- Devuelve 2 falsos positivos
+- Devuelve 1 falso negativo
+
+\ 
+
+```{r}
+SVM$SVM_rbf
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **90%**
+- Devuelve 1 falso positivo
+- Devuelve 2 falsos negativos
+
+\ 
 
 ## Árbol de clasificación
-Se explorará la opción de activar o no 'boosting'.
+**Condición**: Se explorará la opción de activar o no 'boosting'.
 
-Observaciones de los árboles de clasificación:
-- Hay que separar la variable dependiente de los predictores en train y test
-- El vector con la variable dependiente debe ser un factor (al menos con C5.0)
+Librería utilizada:
 ```{r}
-promoters <- read.csv('promoters.txt',header = FALSE,sep=',')
-df <- onehot(df=promoters[,-2], col_seq = 'V3', onehot_cols_name = 'P.', remove_col_seq = TRUE)
-train <- split_train_test(df)$train[,-1]
-test <- split_train_test(df)$test[,-1]
-train_labels <- as.factor(split_train_test(df)$train[,1])
-test_labels <- split_train_test(df)$test[,1]
-tree_m <- C5.0(train, train_labels)
-summary(tree_m)
+library('C50')
 ```
 
-¿Cómo se intepretan los resultados?
-- La posición 57 de la codificación one-hot tiene una importancia del 100% en la creación del árbol de decisión.
-- El porcentaje de error durante el entrenamiento ha sido ```2.7```.
+\ 
 
-Predicción:
+Variables de entrada:
+
+- ```df_onehot```: el *dataframe* codificado en ***one-hot encoding***.
+
 ```{r}
-pre
+decision_tree <- function(df_onehot) {
+  
+  # - Hay que separar la variable dependiente de los predictores en train y test
+  # - El vector con la variable dependiente debe ser un factor (al menos con C5.0)
+  
+  # Split train y data
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- as.factor(split_train_test(df_onehot)$train[,1])
+  test_labels <- as.factor(split_train_test(df_onehot)$test[,1])
+  
+  # Sin boosting
+  # Modelo y estad?sticos
+  DTsb <- C5.0(train, train_labels)
+  # Predicciones
+  pDTsb <- predict(DTsb, test)
+  c1 <- confusionMatrix(pDTsb, test_labels, dnn = c('Predicho','Actual'))
+  
+  # Con boosting
+  # Modelo y estad?sticos
+  DTnb <- C5.0(train, train_labels, trials = 10)
+  # Predicciones
+  pDTnb <- predict(DTnb, test)
+  c2 <- confusionMatrix(pDTnb, test_labels, dnn = c('Predicho','Actual'))
+  
+  return (list('DTsb'=c1, 'DTnb'=c2))
+}
+```
+--- 
+
+**Cómo funciona**
+
+Se separa el *dataframe* en *train* y *test*. Para el modelo de esta librería es necesario separar la etiqueta del promotor del *dataframe*. 
+```{r eval=FALSE}
+  train <- split_train_test(df_onehot)$train[,-1] 
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- as.factor(split_train_test(df_onehot)$train[,1]) # se separan las etiquetas
+  test_labels <- as.factor(split_train_test(df_onehot)$test[,1])
 ```
 
+\ 
+
+Se entrena el modelo sin boosting.
+```{r eval=FALSE}
+  DTsb <- C5.0(train, train_labels)
+```
+
+\ 
+
+Se guardan los valores predichos y se utilizan para hacer la matriz de confusión.
+```{r eval=FALSE}
+  pDTsb <- predict(DTsb, test)
+  c1 <- confusionMatrix(pDTsb, test_labels, dnn = c('Predicho','Actual'))
+```
+
+\ 
+
+Para entrenar el modelo con *boosting* simplemente hay que asigar al parámetro ```trials = 10```, aunque podría ser otro número cualquiera, puesto que el boosting simplemente aumenta el número de iteraciones para extraer el mejor resultado. 
+
+\ 
+
+### Entrenamiento del modelo
+```{r}
+DT <- decision_tree(df_onehot)
+```
+
+\ 
+
+### Predicción y evaluación
+```{r}
+DT$DTsb
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Buena**
+- El modelo tiene una precisión del **84%**
+- Devuelve 2 falsos positivos
+- Devuelve 3 falsos negativos
+
+\ 
+
+```{r}
+DT$DTnb
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Excelente**
+- El modelo tiene una precisión del **96%**
+- Devuelve 1 falso negativo
+
+\ 
 
 ## Random Forest
-Se explorarán la opción de número de árboles n - 50, 100
-```{r}
+**Condición**: Se explorarán la opción de número de árboles n = 50, 100.
 
+Librería utilizada:
+```{r}
+library('randomForest')
 ```
+
+\ 
+
+Variables de entrada:
+
+- ```df_onehot```: el *dataframe* codificado en ***one-hot encoding***.
+
+```{r}
+random_forest <- function(df_onehot) {
+
+  # Convierte la clase en factor
+  df_onehot[,1] <- as.factor(df_onehot[,1])
+  
+  # Split train y data y labels
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- split_train_test(df_onehot)$train[,1]
+  test_labels <- split_train_test(df_onehot)$test[,1]
+  
+  # RF 50
+  # Modelo y estad?sticos
+  RF50 <- randomForest(train, train_labels, ntree = 50)
+  # Predicciones
+  pRF50 <- predict(RF50, test)
+  c1 <- confusionMatrix(pRF50, test_labels, dnn = c('Predicho','Actual'))
+
+  # RF 100
+  # Modelo y estad?sticos
+  RF100 <- randomForest(train, train_labels, ntree = 100)
+  # Predicciones.
+  pRF100 <- predict(RF100, test)
+  c2 <- confusionMatrix(pRF100, test_labels, dnn = c('Predicho','Actual'))
+
+  return (list('RF50'=c1, 'RF100'=c2))
+}
+```
+--- 
+
+**Cómo funciona**
+
+Para el modelo de esta librería, el promotor necesita ser de tipo factor.
+```{r eval=FALSE}
+  # Convierte la clase en factor
+  df_onehot[,1] <- as.factor(df_onehot[,1])
+```
+
+\ 
+
+Además, la variable dependiente se debe separar del *dataframe*, como veníamos haciendo anteriormente.
+```{r eval=FALSE}
+  # Split train y data y labels
+  train <- split_train_test(df_onehot)$train[,-1]
+  test <- split_train_test(df_onehot)$test[,-1]
+  train_labels <- split_train_test(df_onehot)$train[,1] # 
+  test_labels <- split_train_test(df_onehot)$test[,1]
+```
+
+\ 
+
+Se entrena el modelo, en este caso con ```ntree = 50```, que es el número de árboles.
+```{r eval=FALSE}
+  RF50 <- randomForest(train, train_labels, ntree = 50)
+```
+
+\ 
+
+Por último, se predicen los resultados y se guardan en una variable.
+```{r eval=FALSE}
+  pRF50 <- predict(RF50, test)
+  c1 <- confusionMatrix(pRF50, test_labels, dnn = c('Predicho','Actual'))
+```
+
+\ 
+
+Se repite el proceso con ```ntree = 100```.
+
+\ 
+
+### Entrenamiento del modelo
+```{r}
+RF <- random_forest(df_onehot)
+```
+
+\ 
+
+### Predicción y evaluación
+```{r}
+RF$RF50
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **90%**
+- Devuelve 2 falsos positivos
+- Devuelve 1 falso negativo
+
+\ 
+
+```{r}
+RF$RF100
+```
+
+\ 
+
+Interpretación de los resultados con un *test* de 32 secuencias:
+
+- **Muy buena**
+- El modelo tiene una precisión del **90%**
+- Devuelve 3 falsos negativos
+
+\ 
+
+---
 
 # 3. Discusión final
 
+**Resultados finales**, ordenados de mayor a menor *accuracy*.
+```{r echo=FALSE, error=TRUE}
+x <- data.frame(modelo = c('Naive Bayes', 'Naive Bayes', 'kNN', 'kNN', 'kNN', 'kNN', 'ANN', 'ANN', 'SVM', 'SVM', 'Random Forest', 'Random Forest', 'Decision Tree', 'Decision Tree'),feature = c('laplace = 0', 'laplace = 1', 'k = 1', 'k = 3', 'k = 5', 'k = 7', 'h = 4', 'h = 5', 'lineal', 'rbf', 'n = 50', 'n = 100', 'sin boosting', 'con boosting'),accuracy = c(NB$NBlp0$overall['Accuracy'], NB$NBlp1$overall['Accuracy'], KNN$k1$overall['Accuracy'], KNN$k3$overall['Accuracy'], KNN$k5$overall['Accuracy'], KNN$k7$overall['Accuracy'], ANN$ANN4$overall['Accuracy'], ANN$ANN5$overall['Accuracy'], SVM$SVM_lineal$overall['Accuracy'], SVM$SVM_rbf$overall['Accuracy'], RF$RF50$overall['Accuracy'], RF$RF100$overall['Accuracy'], DT$DTsb$overall['Accuracy'], DT$DTnb$overall['Accuracy']),
+colors = c('red','red','yellow','yellow','yellow','yellow','green','green','blueviolet','blueviolet','orange','orange','cyan','cyan'))
+x <- x[order(x$accuracy,decreasing = FALSE),]
+x
+```
 
+\ 
 
+Según los resultados, los mejores modelos por empate son el de ***Artificial Neural*** Network con 5 capas ocultas y ***Decision Tree*** con boosting. No obstante, en general todos los resultados son buenos, aunque está claro que unos más que otros. 
 
+Es interesante ver que en general, todos los modelos del mismo algoritmo van prácticamente juntos. De estos concluiremos más bien poco, más allá de que, de nuevo, parecen funcionar bien. Destacaría los kNN, que han sido los últimos y los que más han sufrido cambios en la precisión final modificando el número de vecinos. 
+
+***kNN*** es un algoritmo que compara las instancias nuevas con las presentes del entrenamiento y se clasificará con el vecino más cercano. Hablamos de 227 variables independientes, en un *dataset* de entrenamiento con 73 observaciones donde sólo hay 1 y 0. Calcular la distancia Euclidiana puede ser complicado con binarios, especialmente si aumentamos el número de vecinos.
+
+Que la **red neuronal** haya dado tan buenos resultados puede deberse a que los datos cumplían las condiciones idóneas y requeridas: valores entre 0 y 1. En estudio futuros, se podría comparar el método one-hot encoding frente a asignar a cada nucleótido 0, 0.25, 0.5 y 1, u cualquier otro método de codificación numérica para contrastar si este es el método más apropiado para la red.
+
+Los **árboles de decisión** construyen estructuras compuestas de nodos internos que funcionan como puntos de decisión para ir hacia una rama o hacia otra. Puede que, de la misma manera que con la red neuronal, trabajar con números binarios le resulte más fácil construir y establecer los criterios. Habría que contrastar con el mismo conjunto de datos otras maneras diferentes a **one-hot encoding** para estar seguros.
+
+La conclusión final es que el ***one-hot encoding*** es una manera interesante de codificar los nucleótidos, y que, a priori, parece ser muy efectiva en redes neuronales y árboles de decisión.
+
+Queda pendiente:
+
+- Captar errores en las funciones, poco pulido en ese sentido.
+- Función para integrar todos los resultados en *dataframe*, *plots*, ...
+- Subir a la web utilizando ```shiny```, con interactividad que permita personalizar los datos y la visualización de los mismos en directo de una forma más sencilla, sólo para promotores.
+
+```{r echo=FALSE, error=TRUE}
+colors = c("red", "yellow", "green", "violet", "orange", "blue", "pink", "cyan", "red")
+barplot(x$accuracy,
+        col = x$colors,
+        horiz = TRUE,
+        names = x$modelo,
+        las = 2,
+        cex.names = .5
+        )
+
+```
