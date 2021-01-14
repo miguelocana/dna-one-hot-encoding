@@ -14,8 +14,9 @@ El ***one-hot encoding*** representa cada nucleótido por un vector de 4 compone
 
 Una vez realizada la transformación *one-hot encoding*, el objetivo se trata de implementar distintos algoritmos para predecir si la secuencia es un promotor o no, y comparar sus rendimientos.
 
-- functions.R: se encuentran todas las funciones del proyecto.
-- informe.Rmd: genera informes dinámicos.
+**Ficheros**:
+- ```functions.R```: se encuentran todas las funciones del proyecto.
+- ```informe.Rmd```: genera informes dinámicos.
 
-#TODO: 
+**TODO**: 
 - app.R: contiene código para ```shiny```
