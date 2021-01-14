@@ -9,9 +9,9 @@ library('gmodels')
 library('caret') # Confusion Matrix
 
 ##################################### PAR?METROS #######################################
-# Define la ruta del csv, así como su cabecera y el separador
+# Define la ruta del csv, asÃ­ como su cabecera y el separador
 DF <- read.csv('promoters.txt',header = FALSE,sep=',')
-# Modifica sólo la V1 por el nombre de la columna con la variable dependiente SIN COMILLAS
+# Modifica sÃ³lo la V1 por el nombre de la columna con la variable dependiente SIN COMILLAS
 FORMULA <- V1 ~ . 
 
 #!! - La clase o variable dependiente debe situarse en la primera columna.
@@ -148,7 +148,7 @@ split_train_test <- function(df, size = 0.7, seed = 123) {
   return (list('train' = train, 'test' = test))
 }
 cat_to_num <- function (vector) {
-  # EstÃ¡ pensada para la variable dependiente,
+  # EstÃƒÂ¡ pensada para la variable dependiente,
   # la primera columna debe ser la clase.
   # Transforma los promotores en 1 (+) y 0 (-)
   for (i in 1:length(vector)) {
@@ -162,7 +162,7 @@ cat_to_num <- function (vector) {
   return (vector)
 }
 num_to_cat <- function (vector) {
-  # EstÃ¡ pensada para la variable dependiente,
+  # EstÃƒÂ¡ pensada para la variable dependiente,
   # la primera columna debe ser la clase.
   # Transforma los promotores en factores + (1) y - (0)
   for (i in 1:length(vector)) {
@@ -364,10 +364,10 @@ svm <- function(df_onehot, formula) {
 }
 ann <- function(df_onehot, formula) {
   
-  # - Se explorarán el número de nodos de la capa oculta n = 4,5
-  # - Las variables independientes y dependientes deben ser numéricas (entre 0 y 1)
+  # - Se explorarÃ¡n el nÃºmero de nodos de la capa oculta n = 4,5
+  # - Las variables independientes y dependientes deben ser numÃ©ricas (entre 0 y 1)
   
-  # Se transforma la variable dependiente en tipo numérico
+  # Se transforma la variable dependiente en tipo numÃ©rico
   df_onehot[,1] <- cat_to_num(df_onehot[,1])
   # Split train y data
   train <- split_train_test(df_onehot)$train
@@ -378,14 +378,14 @@ ann <- function(df_onehot, formula) {
   ANN4 <- neuralnet(formula, data = train, hidden = 4,linear.output = FALSE )
   # Predicciones
   pANN4 <- round(compute(ANN4,test)$net.result,digits=0)
-  # Se transforma en factores '+' o '-' y se evalúa el modelo
+  # Se transforma en factores '+' o '-' y se evalÃºa el modelo
   test4 <- test
   test4[,1] <- num_to_cat(test4[,1])
   pANN4 <- num_to_cat(pANN4)
   c1 <- confusionMatrix(pANN4, test4[,1], dnn = c('Predicho','Actual'))
   
   # Intepretaci?n:
-  # - El modelo tiene una precisión del 90%
+  # - El modelo tiene una precisiÃ³n del 90%
   # - Devuelve 2 falsos positivos 
   # - Devuelve 1 falso negativo 
   
@@ -394,14 +394,14 @@ ann <- function(df_onehot, formula) {
   ANN5 <- neuralnet(formula, data = train, hidden = 5,linear.output = FALSE )
   # Predicciones
   pANN5 <- round(compute(ANN5,test)$net.result,digits=0)
-  # Se transforma en factores '+' o '-' y se evalúa el modelo
+  # Se transforma en factores '+' o '-' y se evalÃºa el modelo
   test5 <- test
   test5[,1] <- num_to_cat(test5[,1])
   pANN5 <- num_to_cat(pANN5)
   c2 <- confusionMatrix(pANN5, test5[,1], dnn = c('Predicho','Actual'))
   
   # Intepretaci?n:
-  # - El modelo tiene una precisión del 90%
+  # - El modelo tiene una precisiÃ³n del 90%
   # - Devuelve 2 falsos positivos 
   # - Devuelve 1 falso negativo
   
