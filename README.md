@@ -19,4 +19,4 @@ Una vez realizada la transformación *one-hot encoding*, el objetivo se trata de
 - ```informe.Rmd```: genera informes dinámicos.
 
 **TODO**: 
-- ```app.R```: contiene código para [*shiny*](https://shiny.rstudio.com/gallery/)
+- ```app.R```: contiene código de [*shiny*](https://shiny.rstudio.com/gallery/).
