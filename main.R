@@ -1,5 +1,5 @@
-##################################### PAR¡METROS #######################################
-# P¡RAMETROS
+##################################### PAR√ÅMETROS #######################################
+# P√ÅRAMETROS
 # 
 #
 #
@@ -8,36 +8,36 @@
 
 #######################################################################################
 
-###################################### C”DIGO #########################################
+###################################### C√ìDIGO #########################################
 
 
 onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
-  # Se asegura de que todas las seq tengan el mismo tamaÒo (de lo contrario salta ERROR)
+  # Se asegura de que todas las seq tengan el mismo tama√±o (de lo contrario salta ERROR)
   f <- length(strsplit(df[col_seq][[1]], "")[[1]])
   for (j in 1:nrow(df)) {
     a = length(strsplit(df[j,col_seq], "")[[1]])
     if (a == f) {
       next
     } else {
-      print('ERROR: al menos una secuencia no tiene el mismo tamaÒo que el resto.')
+      print('ERROR: al menos una secuencia no tiene el mismo tama√±o que el resto.')
       break
     }
   }
   
-  # Crea una columna por cada dÌgito del one-hot
+  # Crea una columna por cada d√≠gito del one-hot
   num_cols <- f * 4
   cols_onehot <- list()
   for (i in 1:num_cols) {
     cols_onehot <- append(cols_onehot,paste(onehot_cols_name,i,sep=""))
   }
   
-  # AÒade las columnas (vacÌas) al nuevo DF
+  # A√±ade las columnas (vac√≠as) al nuevo DF
   df2 <- df
   for (i in cols_onehot) {
     df2[,i] <- NA
   }
   
-  # TraducciÛn de seq a one-hot encoding
+  # Traducci√≥n de seq a one-hot encoding
   for (j in 1:nrow(df2)) {
     seq = strsplit(tolower(df2[j,col_seq]), "")[[1]] # convierte la seq en minuscula
     seq_onehot <- list()
@@ -51,7 +51,7 @@ onehot <- function (df, col_seq, onehot_cols_name='H', remove_col_seq = FALSE) {
       } else if (i == 't') {
         seq_onehot <- append(seq_onehot, c(1,0,0,0))
       } else {
-        print("ERROR: al menos un car·cter de la secuencia introducida no corresponde a ning˙n nucleÛtido (A,G,C,T).")
+        print("ERROR: al menos un car√°cter de la secuencia introducida no corresponde a ning√∫n nucle√≥tido (A,G,C,T).")
         break
       }
     }
